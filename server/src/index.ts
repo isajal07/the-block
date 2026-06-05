@@ -23,14 +23,38 @@ app.use((_req, res, next) => {
 });
 app.options(/.*/, (_req, res) => res.sendStatus(204));
 
+/**
+ * GET /api/health
+ * Liveness check. Returns `{ status: "ok", uptime }` (uptime in seconds).
+ */
 app.get("/api/health", (_req: Request, res: Response) => {
   res.json({ status: "ok", uptime: process.uptime() });
 });
 
+/**
+ * GET /api/makes
+ * Distinct vehicle makes across the inventory, sorted alphabetically.
+ * Used to populate the make filter on the frontend.
+ * Returns `string[]`.
+ */
 app.get("/api/makes", (_req: Request, res: Response) => {
   res.json(makes());
 });
 
+/**
+ * GET /api/vehicles
+ * List and search the inventory.
+ *
+ * Query params (all optional):
+ *   - q       free-text search across make, model, trim, body, city, dealership, lot
+ *   - make    exact make filter (e.g. "Ford")
+ *   - sort    "price_asc" | "price_desc" | "year_asc" | "year_desc"
+ *   - limit   max items to return (defaults to all matches)
+ *   - offset  number of matches to skip, for pagination
+ *
+ * Returns `{ total, items: Vehicle[] }`, where `total` is the full match count
+ * before limit/offset are applied.
+ */
 app.get("/api/vehicles", (req: Request, res: Response) => {
   const { q, make, sort, limit, offset } = req.query;
   const query: VehicleQuery = {
@@ -43,6 +67,12 @@ app.get("/api/vehicles", (req: Request, res: Response) => {
   res.json(listVehicles(query));
 });
 
+/**
+ * GET /api/vehicles/:id
+ * Full detail for a single vehicle, plus its bid history (newest first).
+ *
+ * Returns `{ vehicle: Vehicle, bids: Bid[] }`, or 404 if the id is unknown.
+ */
 app.get("/api/vehicles/:id", (req: Request, res: Response) => {
   const vehicle = getVehicle(String(req.params.id));
   if (!vehicle) {
@@ -52,6 +82,17 @@ app.get("/api/vehicles/:id", (req: Request, res: Response) => {
   res.json({ vehicle, bids: getBids(vehicle.id) });
 });
 
+/**
+ * POST /api/vehicles/:id/bids
+ * Place a bid on a vehicle.
+ *
+ * Body: `{ amount: number }` — must be strictly greater than the current bid.
+ *
+ * Responses:
+ *   - 201 `{ vehicle, bid }`        bid accepted; vehicle reflects the new current_bid
+ *   - 404 `{ error }`              unknown vehicle id
+ *   - 422 `{ error, minimum }`     bid too low; `minimum` is the smallest valid amount
+ */
 app.post("/api/vehicles/:id/bids", (req: Request, res: Response) => {
   const amount = Number(req.body?.amount);
   const result = placeBid(String(req.params.id), amount);
