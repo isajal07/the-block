@@ -31,10 +31,10 @@ wire up.
 
 ## Time Spent
 
-About 2 hours. I used Claude code to make my life easier.
-I kept the focus on the core buyer journey, browse then inspect then
-bid, and spent what was left on polishing the experience and checking that everything
-actually runs end to end.
+About 2 hours. I used Claude Code to move quickly through the boilerplate, scaffolding, config, and the
+repetitive UI, so I could spend the limited time on the decisions that matter: the architecture, the
+product tradeoffs, and verifying it all actually works. I directed the design and reviewed everything
+that went in rather than taking generated code as is
 
 ## Assumptions and Scope
 
