@@ -1,120 +1,131 @@
 # The Block
 
-Buyer side of a vehicle auction platform: browse and search 200 listed vehicles,
-inspect full detail (specs, condition, damage, photos, selling dealership), and
-place bids with live, validated state.
+This is the buyer side of a vehicle auction platform. You can browse and search the
+200 listed vehicles, open one to see the full detail (specs, condition, damage notes,
+photos, and the selling dealership), and place bids that update live.
 
 ## How to Run
 
-**Prerequisites:** Node 20+ (built on Node 24) and pnpm. If you don't have pnpm,
-enable it with `corepack enable`.
+You'll need Node 20 or newer (I built it on Node 24) and pnpm. If pnpm isn't installed,
+run `corepack enable` once and you're set.
 
-**One command (recommended)** — from the repo root:
+The easiest way is one command from the repo root:
 
 ```bash
-make            # installs deps on first run, then starts both apps
+make            # installs deps the first time, then starts both apps
 ```
 
-- Web → http://localhost:5173
-- API → http://localhost:4000
+That brings up the web app at http://localhost:5173 and the API at
+http://localhost:4000. Hit `Ctrl+C` to stop both. Run `make help` to see the other
+targets.
 
-`Ctrl+C` stops both. (`make help` lists other targets.)
-
-**Or run the two packages manually**, in separate terminals:
+If you'd rather run the two pieces yourself, open two terminals:
 
 ```bash
 cd server && pnpm install && pnpm dev   # API on :4000
 cd web    && pnpm install && pnpm dev   # web on :5173
 ```
 
-The web app proxies `/api/*` to the backend in development, so there's nothing else
-to configure.
+In development the web app proxies `/api/*` to the backend, so there's nothing else to
+wire up.
 
 ## Time Spent
 
-About 2 hours. I kept the scope tight on the core buyer journey — browse → inspect →
-bid — and spent the remaining budget on UX polish and verifying the build end to end
-rather than adding surface area.
+About 2 hours. I used Claude code to make my life easier.
+I kept the focus on the core buyer journey, browse then inspect then
+bid, and spent what was left on polishing the experience and checking that everything
+actually runs end to end.
 
 ## Assumptions and Scope
 
-**Included:** inventory browsing, search, make filter, sorting, a full vehicle detail
-view, and a working bid flow with server-side validation and visible state updates.
+What I included: browsing the inventory, searching it, filtering by make, sorting, a
+full vehicle detail view, and a working bid flow with server-side validation and
+visible state updates.
 
-**Intentionally skipped** (per the brief): authentication/accounts, checkout,
-payments, seller/dealer workflows, and admin tooling.
+What I left out on purpose, since the brief said they weren't needed: sign-in and
+accounts, checkout, payments, seller and dealer workflows, and any admin tooling.
 
-**Simplified:**
+A few things I deliberately simplified:
 
-- **Bids are stored in memory.** They update live during a session and reset when the
-  API restarts. The store has a clean seam (`server/src/store.ts`) to swap for a real
-  database without touching the routes.
-- **Auction timestamps are treated as synthetic** (as the brief allows). I show an
-  honest `Live` / `Upcoming` status relative to "now" rather than fabricating a
-  countdown, since the dataset has start times but no end times.
-- Money is formatted as CAD given the Canadian locations in the data.
+- Bids live in memory. They update while you're using the app and reset when the API
+  restarts. I kept all of that behind one module (`server/src/store.ts`), so dropping
+  in a real database later wouldn't touch the routes.
+- I treated the auction timestamps as synthetic, which the brief allows. Instead of
+  faking a countdown, I show a simple `Live` or `Upcoming` status based on the start
+  time, since the data has start times but no end times.
+- Money is shown in CAD, since the locations in the data are Canadian.
 
 ## Stack
 
-- **Frontend:** React 19 + Vite 8 (TypeScript), React Router 7, Tailwind CSS v4
-- **Backend:** Node + Express 5 (TypeScript, run with `tsx`)
-- **Database:** None — an in-memory store seeded from `data/vehicles.json`
+- **Frontend:** React 19 and Vite 8 with TypeScript, React Router 7, and Tailwind CSS v4
+- **Backend:** Node and Express 5 in TypeScript, run with `tsx`
+- **Database:** none. An in-memory store seeded from `data/vehicles.json`
 
 ## What I Built
 
-A small two-part app:
+It's a small two-part app.
 
-- **API** (`server/`) — serves the inventory and arbitrates bids. Endpoints: list/
-  search (`/api/vehicles`), detail + bid history (`/api/vehicles/:id`), place bid
-  (`POST /api/vehicles/:id/bids`), plus `/api/makes` and `/api/health`. Search, filter,
-  and sort happen server-side.
-- **Web** (`web/`) — an inventory grid with debounced search, make filter, sort, and
-  load-more paging; and a detail page with an image gallery, spec grid, condition
-  report with inspection grade and damage notes, auction info, and a bid panel
-  (quick-increment buttons, inline validation, success state, and live bid history).
+The API (`server/`) serves the inventory and handles bids. It exposes list and search
+at `/api/vehicles`, detail plus bid history at `/api/vehicles/:id`, bidding at
+`POST /api/vehicles/:id/bids`, and a couple of helpers in `/api/makes` and
+`/api/health`. Searching, filtering, and sorting all happen on the server.
+
+The web app (`web/`) has an inventory grid with debounced search, a make filter,
+sorting, and a load-more button for paging. The detail page has an image gallery, a
+spec grid, the condition report with its inspection grade and damage notes, the auction
+details, and a bid panel with quick-increment buttons, inline validation, a success
+state, and a running list of recent bids.
 
 ## Notable Decisions
 
-- **I built a backend even though frontend-only was acceptable.** A bid is the one
-  action with real rules, so I wanted those rules enforced in one authoritative place
-  rather than trusting the client. The API owns bid validation; the UI mirrors it for
-  fast feedback but the server is the source of truth, and bid state is shared across
-  the session.
-- **In-memory store over a database.** For a prototype in this time box, a seeded
-  in-memory store keeps setup to zero while isolating persistence behind one module —
-  so "add a database" is a contained change, not a rewrite.
-- **Honest auction state.** I show `Live`/`Upcoming` instead of a fake countdown
-  because the data is synthetic and only has start times; I'd rather not imply
-  precision that isn't there.
-- **Reserve as a trust signal.** Cards show "Reserve met / not met" without revealing
-  the reserve amount — useful to a buyer, faithful to how auctions actually surface it.
-- **Tailwind v4 + a dev proxy** for fast, consistent, responsive styling and a
-  CORS-free local setup. I used current versions of the stack throughout.
+I added a backend even though a frontend-only build would have been fine. Placing a bid
+is the one action with real rules, and I wanted those rules enforced in a single place
+the client can't bypass. The API is the source of truth for bid validation; the UI
+mirrors it so feedback feels instant, and because the state lives on the server, bids
+are shared across the session rather than stuck in one browser tab.
+
+I went with an in-memory store instead of a database. For a prototype in this time box
+it keeps setup at zero, and since persistence sits behind one module, adding a real
+database later is a contained change rather than a rewrite.
+
+I kept the auction state honest. Rather than a countdown that would only be guesswork,
+I show `Live` or `Upcoming`, because the data is synthetic and only gives me start
+times. I'd rather not imply precision that isn't really there.
+
+I used the reserve price as a trust signal. Cards say whether the reserve is met or not
+without showing the actual number, which is what's useful to a buyer and matches how
+auctions tend to surface it.
+
+For the build itself I leaned on Tailwind v4 and a dev proxy to keep styling fast and
+consistent and the local setup free of CORS fiddling, and I used current versions of
+the stack throughout.
 
 ## Testing
 
-Manual and scripted, focused on the timebox:
+I tested by hand and with a few scripts, sized to the time I had.
 
-- **Type safety:** `tsc` passes for both packages; both produce clean production builds.
-- **API behavior:** exercised every endpoint over HTTP — list/sort, detail, a valid
-  bid (current bid and count update), a too-low bid (`422` with the required minimum),
-  and an unknown id (`404`).
-- **UI:** captured desktop and mobile screenshots via headless Chrome, and measured the
-  layout over the DevTools Protocol to confirm zero horizontal overflow on mobile.
+- Both packages type-check cleanly with `tsc` and produce working production builds.
+- I exercised every endpoint over HTTP: list and sort, detail, a valid bid (the current
+  bid and count both move), a too-low bid (a `422` with the minimum it needs), and an
+  unknown id (a `404`).
+- For the UI I took desktop and mobile screenshots with headless Chrome, and measured
+  the page over the DevTools Protocol to confirm there's no horizontal overflow on
+  mobile.
 
-I did not add an automated unit/e2e suite given the time box; that's the first thing
-I'd add next (see below).
+I didn't write an automated unit or end-to-end suite given the time box. That's the
+first thing I'd add next.
 
 ## What I'd Do With More Time
 
-- **Persistence + real-time:** move bids to a database and push updates over WebSocket/
-  SSE so bids appear live and outbids notify the buyer.
-- **Concurrency:** handle simultaneous bids (optimistic locking / minimum-increment by
-  price tier) so two buyers can't race the same amount.
-- **Automated tests:** Vitest for the store/API and Playwright for the browse→bid flow.
-- **Richer discovery:** price/year/body-style/location filters, a watchlist, and
-  infinite scroll instead of load-more.
-- **Accounts:** lightweight buyer identity so bid history is per-user and "you're the
-  high bidder" persists.
-- **Accessibility pass:** focus management, keyboard nav, and ARIA on the gallery and
-  bid controls.
+- Move bids into a database and push updates over WebSocket or SSE, so bids show up
+  live and a buyer gets told when they've been outbid.
+- Handle simultaneous bids properly, with optimistic locking or a minimum increment by
+  price tier, so two buyers can't land on the same amount at once.
+- Add real tests: Vitest for the store and API, and Playwright for the browse-to-bid
+  flow.
+- Make discovery richer with filters for price, year, body style, and location, a
+  watchlist, and infinite scroll in place of load-more.
+- Add lightweight buyer accounts, so bid history is per-person and "you're the high
+  bidder" sticks around.
+- Do an accessibility pass: focus handling, keyboard navigation, and ARIA on the gallery
+  and the bid controls.
